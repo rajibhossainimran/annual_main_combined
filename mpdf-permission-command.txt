@@ -1,0 +1,4 @@
+#centos
+setenforce 0
+chcon -R -t httpd_sys_rw_content_t /var/www/TIL-Project/vendor/mpdf/mpdf/src/Config/../../tmp/mpdf
+setenforce 1

@@ -1,0 +1,34 @@
+{
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build"
+    },
+    "devDependencies": {
+        "@originjs/vite-plugin-commonjs": "^1.0.3",
+        "@tailwindcss/forms": "^0.5.2",
+        "@vitejs/plugin-react": "^4.0.4",
+        "alpinejs": "^3.4.2",
+        "autoprefixer": "^10.4.2",
+        "axios": "^1.1.2",
+        "laravel-vite-plugin": "^0.8.0",
+        "postcss": "^8.4.6",
+        "tailwindcss": "^3.1.0",
+        "vite": "^4.5.5"
+    },
+    "dependencies": {
+        "@ckeditor/ckeditor5-build-classic": "^40.0.0",
+        "@ckeditor/ckeditor5-react": "^6.1.0",
+        "ckeditor5-build-classic-plus": "^13.0.0",
+        "moment": "^2.29.4",
+        "react": "^18.2.0",
+        "react-bootstrap": "^2.9.0",
+        "react-datepicker": "^4.21.0",
+        "react-dom": "^18.2.0",
+        "react-moment": "^1.1.3",
+        "react-number-format": "^5.3.1",
+        "react-select": "^5.7.5",
+        "sweetalert2": "^11.7.32"
+    }
+}

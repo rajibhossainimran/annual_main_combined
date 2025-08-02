@@ -1,0 +1,57 @@
+body{
+    font-family: 'Open Sans', sans-serif;
+    font-size: 14px;
+}
+.table-header-bg{
+    background: #00664ecc;
+    color: #fff;
+    border-radius: 3px 3px 0px 0px;
+}
+.nav-link{
+    padding: 0px;
+}
+.btn-icon .btn-icon-wrapper{
+    margin-right: 0px;
+    font-weight: 400;
+    font-size: 12px;
+}
+btn-custom{
+    background: none;
+    border: 1px solid #fff;
+}
+.btnc {
+    display: inline-block;
+    font-weight: 400;
+    color: #fff;
+    text-align: center;
+    vertical-align: middle;
+    user-select: none;
+    background-color: transparent;
+    border: 1px solid transparent;
+    padding: 0px 5px;
+    font-size: 1rem;
+    line-height: 1.5;
+    border-radius: 0.25rem;
+    transition: color 0.15s, background-color 0.15s, border-color 0.15s,
+    box-shadow 0.15s;
+    cursor: pointer;
+    border: 1px solid #fff;
+    margin-right: 5px;
+}
+.f-14{
+    font-size: 14px;
+}
+.table-header-bg h5{
+    padding-left: 5px;
+    margin-bottom: 0px;
+}
+.card-body{
+    padding: 0px;
+    /* border-top: 1px solid #338471;
+    border-left: 1px solid #338471;
+    border-right: 1px solid #338471; */
+    border-radius: 4px 4px 0px 0px;
+}
+thead{
+    background: #00664040;
+}
