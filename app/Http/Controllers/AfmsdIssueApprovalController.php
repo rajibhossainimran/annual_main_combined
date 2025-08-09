@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AfmsdIssueApproval;
 use App\Models\AfmsdIssueApprovalBatch;
+use App\Models\Purchase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -13,33 +14,27 @@ class AfmsdIssueApprovalController extends Controller
    
 // $item = Purchase::with('purchasePvms.batchPvms', 'dmdUnit', 'purchasePvms.pvms.itemTypename',
 //  'purchasePvms.demand', 'purchasePvms.purchaseDelivery.store.batch')
-    public function IssueApprovals()
-    {
-       $approvals = AfmsdIssueApproval::with([
-        'batchInfo',
-        'purchaseItem.subOrganization',
-        'purchaseItem.purchasePvms',          
-        'purchaseItem.dmdUnit',                   
-        'purchaseItem.purchasePvms.purchaseDelivery.store.batch',                   
-        'purchaseType.pvms.itemTypename',
-        'purchaseType.demand',
-        'purchaseType.batchPvms',
-        'user'
-    ])
-    ->orderBy('id', 'desc')
-    ->get();
 
 
-        
-        $grouped = $approvals->groupBy('purchase_id')->map(function ($items, $purchaseId) {
-            return [
-                'purchase_id' => $purchaseId,
-                'items' => $items->values(),
-            ];
-        })->values();
+    // public function IssueApprovals()
+    // {
+    //    $approvals = Purchase::with([                  
+    //     'purchaseTypes',
+    //     'subOrganization',
+    //     'financialYear',
+    //     // 'purchasePvms.pvms.itemTypename',
+    //     // 'purchasePvms.demand.demandType',
+    //      'purchaseTypes.purchaseDelivery',
+    //      'purchaseTypes.demand.demandType',
+    //      'purchaseTypes.pvms.itemTypename',
+    // ])->where('afmsd_approval', 1)
+    // ->orderBy('id', 'desc')
+    // ->get();
 
-        return response()->json($grouped);
-    }
+
+
+    //     return response()->json($approvals);
+    // }
 
     public function IssueApprovalsItemForGroupIng (){
         $approvals = AfmsdIssueApproval::with([

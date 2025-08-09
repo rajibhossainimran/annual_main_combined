@@ -269,6 +269,31 @@ class IssueOrderController extends Controller
         return response()->json(['message' => 'No matching record found'], 404);
     }
 
+    // get data by user role base for stock control officer oic and group incharge
+public function getPurchaseDetails()
+{
+    $user = Auth::user();
+    $role = $user->role;
+
+    $approveValue = null;
+
+    if ($role === 'StockControlOfficer') {
+        $approveValue = 1;
+    } elseif ($role === 'afmsd_co') {
+        $approveValue = 2;
+    } elseif ($role === 'GroupIncharge1') {
+        $approveValue = 3;
+    }
+
+    $purchases = Purchase::where('afmsd_approval', $approveValue)->get();
+
+    return response()->json([
+        'user' => $user,
+        'purchases' => $purchases
+    ]);
+}
+
+
     private function getStatusLabel($stage)
     {
         switch ($stage) {

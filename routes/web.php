@@ -336,12 +336,17 @@ Route::middleware(['auth', 'isExpired'])->group(function () {
     Route::post('/unit-delivery/approve/{id}', [IssueOrderController::class, 'approveUnitDelivery'])->name('unitDelivery.approve');
     Route::post('/purchase-type/approve/{id}', [IssueOrderController::class, 'approvePurchaseType'])->name('purchaseType.approve');
     Route::get('/purchase-type/details/{id}', [IssueOrderController::class, 'getPurchaseTypeDetails']);
+    Route::get('/purchase-type/detail', [IssueOrderController::class, 'getPurchaseDetails']);
+
 
     // afmsd 
     Route::post('/afmsd-pvms-delivery-approvals', [AfmsdIssueApprovalController::class, 'storeIssueApprovl']);
-    Route::get('/afmsd-pvms-delivery-approval', [AfmsdIssueApprovalController::class, 'IssueApprovals']);
+    Route::get('/afmsd-pvms-delivery-approval', [ReportController::class, 'IssueApprovals']);
+    Route::get('/afmsd-pvms-delivery-approval-afmsdCo', [ReportController::class, 'IssueApprovalsAfmsdCo']);
+    Route::get('/afmsd-pvms-delivery-approval-group-incharge', [ReportController::class, 'IssueApprovalsAfmsdGroupIncharge']);
     Route::get('/afmsd-pvms-delivery-approval_groupIncharge', [AfmsdIssueApprovalController::class, 'IssueApprovalsItemForGroupIng']);
-    Route::put('/afmsd-pvms-delivery-approvals/{id}', [AfmsdIssueApprovalController::class, 'updateDeliveryApproval']);
+    Route::put('/afmsd-pvms-delivery-approvals-stockControlOfficer/{id}', [ReportController::class, 'updateAfmsdApprovalStockControlOfficer']);
+    Route::put('/afmsd-pvms-delivery-approvals-group-incharge/{id}', [ReportController::class, 'updateAfmsdApprovalGroupIncharge']);
 
 
 
@@ -620,6 +625,9 @@ Route::get('workorder/download/pdf/{id}', [PDFController::class, 'workOrder']);
 Route::get('issue/download/pdf/{id}', [PDFController::class, 'issuePDF']);
 Route::get('demo/download/pdf/{id}', [PDFController::class, 'generate_pdf']);
 Route::get('pvms/import/excel/check', [PVMSController::class, 'checkDuplicate']);
+
+// afmsd issue PDF 
+Route::get('/issue/print/{id}', [PDFController::class, 'afmsdIssuePDF'])->name('afmsdIssuePDF');
 
 Route::get('pvms/import/excel/stock', [PVMSController::class, 'importViewStock'])->name('import.stock.view');
 Route::post('pvms/import/excel/stock/upload', [PVMSController::class, 'importStock'])->name('import.stock');

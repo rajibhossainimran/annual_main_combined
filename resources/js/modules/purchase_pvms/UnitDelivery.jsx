@@ -29,6 +29,14 @@ export default function UnitDelivery() {
     const [loading, setLoading] = useState(false);
     const [perPage, setPerPage] = useState(10);
 
+    const [filterType, setFilterType] = useState('all');
+    const [selectedYear, setSelectedYear] = useState('');
+
+    const [stockControlOfficerData, setStockControlOfficerData] = useState([]);
+    // const [searchTerm, setSearchTerm] = useState('');
+    // const [currentPage, setCurrentPage] = useState(1);
+    // const [perPage, setPerPage] = useState(10);
+
 
 
 
@@ -45,7 +53,25 @@ export default function UnitDelivery() {
     }, [])
 
     // fetch unit delivery data and show in a table 
-    const fetchIssuedData = (page = 1, search = '') => {
+    // const fetchIssuedData = (page = 1, search = '') => {
+    //     setLoading(true);
+    //     axios.get(`${window.app_url}/all-issued-purchases`, {
+    //         params: {
+    //             page,
+    //             per_page: perPage,
+    //             search
+    //         }
+    //     })
+    //         .then((res) => {
+    //             setIssuedData(res.data.data);
+    //             // console.log(res.data.data);
+    //             setCurrentPage(res.data.current_page);
+    //             setLastPage(res.data.last_page);
+    //         })
+    //         .finally(() => setLoading(false));
+    // };
+
+    const fetchIssuedData = (page = 1, search = '', filter = 'all', year = '') => {
         setLoading(true);
         axios.get(`${window.app_url}/all-issued-purchases`, {
             params: {
@@ -55,13 +81,28 @@ export default function UnitDelivery() {
             }
         })
             .then((res) => {
-                setIssuedData(res.data.data);
-                // console.log(res.data.data);
+                let data = res.data.data;
+
+                // Filter by control/non-control
+                if (filter === 'control') {
+                    data = data.filter(item => item.purchase_pvms[0]?.pvms?.control_types_id === 1);
+                } else if (filter === 'noncontrol') {
+                    data = data.filter(item => item.purchase_pvms[0]?.pvms?.control_types_id === 2);
+                }
+
+                // Filter by financial year
+                if (year) {
+                    data = data.filter(item => String(item.financial_year?.id) === String(year));
+                }
+
+                setIssuedData(data);
                 setCurrentPage(res.data.current_page);
                 setLastPage(res.data.last_page);
             })
             .finally(() => setLoading(false));
     };
+
+
 
 
 
@@ -459,9 +500,348 @@ export default function UnitDelivery() {
     };
 
 
+    useEffect(() => {
+        if (UserInfo?.user_approval_role_id === 25 && UserInfo?.sub_organization?.type === 'AFMSD') {
+            axios.get(`${window.app_url}/afmsd-pvms-delivery-approval`)
+                .then((res) => {
+                    console.log(res.data);
+                    setStockControlOfficerData(res.data);
+                })
+                .catch((error) => {
+                    console.error("Error loading approvals:", error);
+                });
+        }
+    }, [UserInfo]);
+
+
+
+
+    // afmsd co 
+    useEffect(() => {
+        if (UserInfo?.user_approval_role_id === 1 && UserInfo?.sub_organization?.type === 'AFMSD') {
+            axios.get(`${window.app_url}/afmsd-pvms-delivery-approval-afmsdCo`)
+                .then((res) => {
+                    console.log(res.data);
+                    setStockControlOfficerData(res.data);
+                    // console.log(res.data);
+                })
+                .catch((error) => {
+                    console.error("Error loading approvals:", error);
+                });
+        }
+    }, [UserInfo]);
+
+    // groupIncharge 
+    useEffect(() => {
+        if (UserInfo?.user_approval_role_id === 26 && UserInfo?.sub_organization?.type === 'AFMSD') {
+            axios.get(`${window.app_url}/afmsd-pvms-delivery-approval-group-incharge`)
+                .then((res) => {
+                    console.log(res.data);
+                    setStockControlOfficerData(res.data);
+                    // console.log(res.data);
+                })
+                .catch((error) => {
+                    console.error("Error loading approvals:", error);
+                });
+        }
+    }, [UserInfo]);
+
+
+
+
+    const filteredDataStockControlOfficer = stockControlOfficerData.filter(item => {
+        const search = searchTerm.toLowerCase();
+        return (
+            item.purchase_number?.toLowerCase().includes(search) ||
+            item?.sub_organization?.name?.toLowerCase().includes(search) ||
+            item?.purchase_types[0]?.demand?.demand_type?.name?.toLowerCase().includes(search)
+        );
+    });
+
+    const totalPages = Math.ceil(filteredDataStockControlOfficer.length / perPage);
+    const paginatedData = filteredDataStockControlOfficer.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+
+    // hangle open modal for stockControlOfficer 
+    const handleOpenTableModalForStockControlOfficer = (item) => {
+
+        const purchaseName = item.purchase_number;
+        const cmhName = item?.sub_organization?.name || 'N/A';
+        setTimeout(() => {
+            const rowsHtml = item.purchase_types.map((row, index) => {
+                const totalDeliveredQty = row.purchase_delivery.reduce(
+                    (sum, item) => sum + (item.delivered_qty || 0),
+                    0
+                );
+
+                return `
+        <tr>
+            <td class="text-end py-2">${index + 1}</td>
+            <td class="text-end py-2">${row?.pvms?.pvms_id ?? ''}</td>
+            <td class="text-start py-2">${row?.pvms?.nomenclature ?? ''}</td>
+            <td class="text-end py-2">${row?.pvms?.account_unit?.name ?? ''}</td>
+            <td class="text-end py-2">${row.request_qty}</td>
+            <td class="text-end py-2">${totalDeliveredQty}</td>
+            <td class="py-2">
+                <textarea 
+                    class="form-control form-control-sm" 
+                    rows="1"
+                    data-row-index="${index}"
+                    data-purchase-id="${row?.id ?? ''}"
+                    readonly
+                >${row?.purchase_delivery[0]?.send_remarks ?? ''}</textarea>
+            </td>
+        </tr>
+    `;
+            }).join('');
+            Swal.fire({
+                title: 'Delivery Details',
+                html: `
+                    <div style="width: 100%; font-size: 14px;">
+                        <div style="text-align: left;">
+                            <p style="font-weight: bold; font-size: 16px; margin: 0; margin-bottom:4px;">Voucher No : ${purchaseName}</p>
+                            <p style="font-weight: bold; font-size: 14px; margin: 0; margin-bottom:7px;">Unit Name : ${cmhName}</p>
+                        </div>
+
+                        <table class="table table-bordered w-100">
+                            <thead>
+                                <tr>
+                                    <th>Sl.</th>
+                                    <th>PVMS No.</th>
+                                    <th className="text-start" >Nomenclature</th>
+                                    <th>A/U</th>
+                                    <th>Issued Qty</th>
+                                    <th>Intransit Qty</th>
+                                    <th>Clerk Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Approve',
+                cancelButtonText: 'Cancel',
+                customClass: {
+                    confirmButton: 'btn btn-success',
+                    cancelButton: 'btn btn-danger ml-2'
+                },
+                buttonsStyling: false,
+                width: '80%',
+            }).then(result => {
+                if (result.isConfirmed) {
+                    // Second alert: confirmation before action
+                    Swal.fire({
+                        title: 'Are you sure?',
+                        text: 'You want to approve it?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, Approve',
+                        cancelButtonText: 'Cancel',
+                        customClass: {
+                            confirmButton: 'btn btn-success',
+                            cancelButton: 'btn btn-secondary ml-2'
+                        },
+                        buttonsStyling: false,
+                    }).then(async (finalConfirm) => {
+                        if (finalConfirm.isConfirmed) {
+                            try {
+                                const res = await axios.put(`${window.app_url}/afmsd-pvms-delivery-approvals-stockControlOfficer/${item.id}`);
+                                Swal.fire({
+                                    icon: 'success',
+                                    text: 'Delivery data updated successfully!'
+                                }).then(() => {
+                                    window.location.reload();
+                                });
+                            } catch (error) {
+                                console.error("Update failed:", error);
+                                Swal.fire({
+                                    icon: 'error',
+                                    text: 'Delivery update failed.'
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+        }, 0);
+    };
+
+    // Handle modal for groupIncharge 
+
+    const handleOpenTableModalForGroupIncharge = (item) => {
+
+        const purchaseName = item.purchase_number;
+        const cmhName = item?.sub_organization?.name || 'N/A';
+        setTimeout(() => {
+            const rowsHtml = item.purchase_types.map((row, index) => {
+                const totalDeliveredQty = row.purchase_delivery.reduce(
+                    (sum, item) => sum + (item.delivered_qty || 0),
+                    0
+                );
+
+                return `
+        <tr>
+            <td class="text-end py-2">${index + 1}</td>
+            <td class="text-end py-2">${row?.pvms?.pvms_id ?? ''}</td>
+            <td class="text-start py-2">${row?.pvms?.nomenclature ?? ''}</td>
+            <td class="text-end py-2">${row?.pvms?.account_unit?.name ?? ''}</td>
+            <td class="text-end py-2">${row.request_qty}</td>
+            <td class="text-end py-2">${totalDeliveredQty}</td>
+            <td class="py-2">
+                <textarea 
+                    class="form-control form-control-sm" 
+                    rows="1"
+                    data-row-index="${index}"
+                    data-purchase-id="${row?.id ?? ''}"
+                    readonly
+                >${row?.purchase_delivery[0]?.send_remarks ?? ''}</textarea>
+            </td>
+        </tr>
+    `;
+            }).join('');
+            Swal.fire({
+                title: 'Delivery Details',
+                html: `
+                    <div style="width: 100%; font-size: 14px;">
+                        <div style="text-align: left;">
+                            <p style="font-weight: bold; font-size: 16px; margin: 0; margin-bottom:4px;">Voucher No : ${purchaseName}</p>
+                            <p style="font-weight: bold; font-size: 14px; margin: 0; margin-bottom:7px;">Unit Name : ${cmhName}</p>
+                        </div>
+
+                        <table class="table table-bordered w-100">
+                            <thead>
+                                <tr>
+                                    <th>Sl.</th>
+                                    <th>PVMS No.</th>
+                                    <th className="text-start" >Nomenclature</th>
+                                    <th>A/U</th>
+                                    <th>Issued Qty</th>
+                                    <th>Intransit Qty</th>
+                                    <th>Clerk Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Approve',
+                cancelButtonText: 'Cancel',
+                customClass: {
+                    confirmButton: 'btn btn-success',
+                    cancelButton: 'btn btn-danger ml-2'
+                },
+                buttonsStyling: false,
+                width: '80%',
+            }).then(result => {
+                if (result.isConfirmed) {
+                    // Second alert: confirmation before action
+                    Swal.fire({
+                        title: 'Are you sure?',
+                        text: 'You want to approve it?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, Approve',
+                        cancelButtonText: 'Cancel',
+                        customClass: {
+                            confirmButton: 'btn btn-success',
+                            cancelButton: 'btn btn-secondary ml-2'
+                        },
+                        buttonsStyling: false,
+                    }).then(async (finalConfirm) => {
+                        if (finalConfirm.isConfirmed) {
+                            try {
+                                const res = await axios.put(`${window.app_url}/afmsd-pvms-delivery-approvals-group-incharge/${item.id}`);
+                                Swal.fire({
+                                    icon: 'success',
+                                    text: 'Delivery data updated successfully!'
+                                }).then(() => {
+                                    window.location.reload();
+                                });
+                            } catch (error) {
+                                console.error("Update failed:", error);
+                                Swal.fire({
+                                    icon: 'error',
+                                    text: 'Delivery update failed.'
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+        }, 0);
+    };
+
+    // stockControlOfficerData view model code 
+    const handleOpenViewForStockControlOfficer = (item) => {
+        setTimeout(() => {
+            const rowsHtml = item.purchase_types.map((row, index) => {
+                const totalDeliveredQty = row.purchase_delivery.reduce(
+                    (sum, item) => sum + (item.delivered_qty || 0),
+                    0
+                );
+
+                return `
+        <tr>
+            <td class="text-end py-2">${index + 1}</td>
+            <td class="text-end py-2">${row?.pvms?.pvms_id ?? ''}</td>
+            <td class="text-start py-2">${row?.pvms?.nomenclature ?? ''}</td>
+            <td class="text-end py-2">${row?.pvms?.account_unit?.name ?? ''}</td>
+            <td class="text-end py-2">${row.request_qty}</td>
+            <td class="text-end py-2">${totalDeliveredQty}</td>
+            <td class="py-2">
+                <textarea 
+                    class="form-control form-control-sm" 
+                    rows="1"
+                    data-row-index="${index}"
+                    data-purchase-id="${row?.id ?? ''}"
+                    readonly
+                >${row?.purchase_delivery[0]?.send_remarks ?? ''}</textarea>
+            </td>
+        </tr>
+    `;
+            }).join('');
+            Swal.fire({
+                title: 'Delivery Details',
+                html: `
+                    <div style="width: 100%; font-size: 14px;">
+                        <table class="table table-bordered w-100">
+                            <thead>
+                                <tr>
+                                    <th>Sl.</th>
+                                    <th>PVMS No.</th>
+                                    <th className="text-start" >Nomenclature</th>
+                                    <th>A/U</th>
+                                    <th>Issued Qty</th>
+                                    <th>Intransit Qty</th>
+                                    <th>Clerk Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                    </div>
+                `,
+                showCancelButton: true,
+                cancelButtonText: 'Close',
+                showConfirmButton: false,
+                customClass: {
+                    cancelButton: 'btn btn-success ml-2'
+                },
+                buttonsStyling: false,
+                width: '80%',
+            })
+        }, 0);
+    };
+
+    // send purchase id to get print issueFDF page 
+    const handlePrint = (issueItem) => {
+        window.open(`/issue/print/${issueItem}`, '_blank', 'noopener,noreferrer');
+    }
+
     return (
         <>
-            {Isloading ?
+            {Isloading ? (
                 <div className='text-center'>
                     <div className="ball-pulse w-100">
                         <div className='spinner-loader'></div>
@@ -469,7 +849,409 @@ export default function UnitDelivery() {
                         <div className='spinner-loader'></div>
                     </div>
                 </div>
-                :
+            ) : UserInfo?.user_approval_role_id === 25 && UserInfo?.sub_organization?.type === 'AFMSD' ? (
+                Isloading ? (
+                    <div className='text-center'>
+                        <div className="ball-pulse w-100">
+                            <div className='spinner-loader'></div>
+                            <div className='spinner-loader'></div>
+                            <div className='spinner-loader'></div>
+                        </div>
+                    </div>
+                ) : (
+                    <div>
+                        <div className="d-flex justify-content-between align-items-center table-header-bg py-1">
+                            <h5 className="f-14">Demand Issue Delivery </h5>
+                        </div>
+                        <div className="d-flex justify-content-between align-items-center mb-2 mt-2">
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                className="form-control w-25"
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                            />
+
+                            <select
+                                value={perPage}
+                                onChange={(e) => {
+                                    setPerPage(parseInt(e.target.value));
+                                    setCurrentPage(1);
+                                }}
+                                className="form-select form-select-sm bg-white text-dark border shadow-sm py-1"
+                            >
+                                <option value={10}>10 per page</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                        </div>
+
+
+                        <div className='p-2'>
+                            <table className='table table-bordered mt-2'>
+                                <thead>
+                                    <tr className=''>
+                                        <th>Sl.</th>
+                                        <th>Voucher No.</th>
+                                        <th>Unit Name</th>
+                                        <th>Control-Type</th>
+                                        <th>Demand-Type</th>
+                                        <th>Date</th>
+                                        <th>FY</th>
+                                        <th>Items</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {stockControlOfficerData && paginatedData.length > 0 ? (
+                                        paginatedData.map((item, index) => {
+                                            const issueItem = item;
+
+                                            return (
+                                                <tr key={index}>
+                                                    <td className='py-2'>{index + 1}</td>
+                                                    <td>
+                                                        {issueItem.purchase_number}
+                                                        {issueItem.afmsd_approval === 1 && (
+                                                            <span className="badge bg-success ms-2 text-white ml-2">New</span>
+                                                        )}
+                                                    </td>
+                                                    <td>{issueItem?.sub_organization?.name}</td>
+                                                    <td>
+                                                        {
+                                                            issueItem.purchase_types[0]?.pvms?.control_types_id === 1
+                                                                ? 'Control Item'
+                                                                : issueItem.purchase_types[0]?.pvms?.control_types_id === 2
+                                                                    ? 'NonControl Item'
+                                                                    : 'Unknown'
+                                                        }
+                                                    </td>
+                                                    <td>{issueItem?.purchase_types[0]?.demand?.demand_type?.name}</td>
+                                                    <td>
+                                                        {new Date(issueItem.purchase_types[0]?.purchase_delivery[0]?.created_at)
+                                                            .toLocaleDateString('en-GB')}
+                                                    </td>
+                                                    <td>{issueItem?.financial_year?.name}</td>
+                                                    <td>{issueItem.purchase_types.length}</td>
+                                                    <td className='d-flex justify-content-around align-items-center gap-2'>
+                                                        {issueItem.afmsd_approval === 1 && (
+                                                            <button className="btn btn-sm btn-success" onClick={() => handleOpenTableModalForStockControlOfficer(issueItem)}>
+                                                                Approve
+                                                            </button>
+                                                        )}
+                                                        <button className="btn btn-sm btn-primary me-2" onClick={() => handlePrint(issueItem.id)}>
+                                                            Print
+                                                        </button>
+                                                        <button className="btn btn-sm btn-secondary me-2" onClick={() => handleOpenViewForStockControlOfficer(issueItem)}>view</button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="9" className="text-center py-3 text-muted">
+                                                No issue record for you at this moment.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="d-flex justify-content-center mt-4 gap-2 mx-auto">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="btn btn-sm btn-secondary"
+                            >
+                                Prev
+                            </button>
+
+                            <span className="px-2">Page {currentPage} of {totalPages}</span>
+
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="btn btn-sm btn-secondary"
+                            >
+                                Next
+                            </button>
+                        </div>
+
+                    </div>)
+            ) : UserInfo?.user_approval_role_id === 1 && UserInfo?.sub_organization?.type === 'AFMSD' ? (
+                Isloading ? (
+                    <div className='text-center'>
+                        <div className="ball-pulse w-100">
+                            <div className='spinner-loader'></div>
+                            <div className='spinner-loader'></div>
+                            <div className='spinner-loader'></div>
+                        </div>
+                    </div>
+                ) : (
+                    <div>
+                        <div className="d-flex justify-content-between align-items-center table-header-bg py-1">
+                            <h5 className="f-14">Demand Issue Delivery </h5>
+                        </div>
+                        <div className="d-flex justify-content-between align-items-center mb-2 mt-2">
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                className="form-control w-25"
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                            />
+
+                            <select
+                                value={perPage}
+                                onChange={(e) => {
+                                    setPerPage(parseInt(e.target.value));
+                                    setCurrentPage(1);
+                                }}
+                                className="form-select form-select-sm bg-white text-dark border shadow-sm py-1"
+                            >
+                                <option value={10}>10 per page</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                        </div>
+
+
+                        <div className='p-2'>
+                            <table className='table table-bordered mt-2'>
+                                <thead>
+                                    <tr className=''>
+                                        <th>Sl.</th>
+                                        <th>Voucher No.</th>
+                                        <th>Unit Name</th>
+                                        <th>Control-Type</th>
+                                        <th>Demand-Type</th>
+                                        <th>Date</th>
+                                        <th>FY</th>
+                                        <th>Items</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {stockControlOfficerData && paginatedData.length > 0 ? (
+                                        paginatedData.map((item, index) => {
+                                            const issueItem = item;
+
+                                            return (
+                                                <tr key={index}>
+                                                    <td className='py-2'>{index + 1}</td>
+                                                    <td>
+                                                        {issueItem.purchase_number}
+                                                        {issueItem.afmsd_approval === 2 && (
+                                                            <span className="badge bg-success ms-2 text-white ml-2">New</span>
+                                                        )}
+                                                    </td>
+                                                    <td>{issueItem?.sub_organization?.name}</td>
+                                                    <td>
+                                                        {
+                                                            issueItem.purchase_types[0]?.pvms?.control_types_id === 1
+                                                                ? 'Control Item'
+                                                                : issueItem.purchase_types[0]?.pvms?.control_types_id === 2
+                                                                    ? 'NonControl Item'
+                                                                    : 'Unknown'
+                                                        }
+                                                    </td>
+                                                    <td>{issueItem?.purchase_types[0]?.demand?.demand_type?.name}</td>
+                                                    <td>
+                                                        {new Date(issueItem.purchase_types[0]?.purchase_delivery[0]?.created_at)
+                                                            .toLocaleDateString('en-GB')}
+                                                    </td>
+                                                    <td>{issueItem?.financial_year?.name}</td>
+                                                    <td>{issueItem.purchase_types.length}</td>
+                                                    <td className='d-flex justify-content-around align-items-center gap-2'>
+                                                        {issueItem.afmsd_approval === 2 && (
+                                                            <button className="btn btn-sm btn-success" onClick={() => handleOpenTableModalForStockControlOfficer(issueItem)}>
+                                                                Approve
+                                                            </button>
+                                                        )}
+                                                        <button className="btn btn-sm btn-primary me-2" onClick={() => handlePrint(issueItem.id)}>
+                                                            Print
+                                                        </button>
+                                                        <button className="btn btn-sm btn-secondary me-2" onClick={() => handleOpenViewForStockControlOfficer(issueItem)}>view</button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="9" className="text-center py-3 text-muted">
+                                                No issue record for you at this moment.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="d-flex justify-content-center mt-4 gap-2 mx-auto">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="btn btn-sm btn-secondary"
+                            >
+                                Prev
+                            </button>
+
+                            <span className="px-2">Page {currentPage} of {totalPages}</span>
+
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="btn btn-sm btn-secondary"
+                            >
+                                Next
+                            </button>
+                        </div>
+
+                    </div>)
+            ) : UserInfo?.user_approval_role_id === 26 && UserInfo?.sub_organization?.type === 'AFMSD' ? (
+                Isloading ? (
+                    <div className='text-center'>
+                        <div className="ball-pulse w-100">
+                            <div className='spinner-loader'></div>
+                            <div className='spinner-loader'></div>
+                            <div className='spinner-loader'></div>
+                        </div>
+                    </div>
+                ) : (
+                    <div>
+                        <div className="d-flex justify-content-between align-items-center table-header-bg py-1">
+                            <h5 className="f-14">Demand Issue Delivery </h5>
+                        </div>
+                        <div className="d-flex justify-content-between align-items-center mb-2 mt-2">
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                className="form-control w-25"
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                            />
+
+                            <select
+                                value={perPage}
+                                onChange={(e) => {
+                                    setPerPage(parseInt(e.target.value));
+                                    setCurrentPage(1);
+                                }}
+                                className="form-select form-select-sm bg-white text-dark border shadow-sm py-1"
+                            >
+                                <option value={10}>10 per page</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                        </div>
+
+
+                        <div className='p-2'>
+                            <table className='table table-bordered mt-2'>
+                                <thead>
+                                    <tr className=''>
+                                        <th>Sl.</th>
+                                        <th>Voucher No.</th>
+                                        <th>Unit Name</th>
+                                        <th>Control-Type</th>
+                                        <th>Demand-Type</th>
+                                        <th>Date</th>
+                                        <th>FY</th>
+                                        <th>Items</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {stockControlOfficerData && paginatedData.length > 0 ? (
+                                        paginatedData.map((item, index) => {
+                                            const issueItem = item;
+
+                                            return (
+                                                <tr key={index}>
+                                                    <td className='py-2'>{index + 1}</td>
+                                                    <td>
+                                                        {issueItem.purchase_number}
+                                                        {issueItem.afmsd_approval === 3 && (
+                                                            <span className="badge bg-success ms-2 text-white ml-2">New</span>
+                                                        )}
+                                                    </td>
+                                                    <td>{issueItem?.sub_organization?.name}</td>
+                                                    <td>
+                                                        {
+                                                            issueItem.purchase_types[0]?.pvms?.control_types_id === 1
+                                                                ? 'Control Item'
+                                                                : issueItem.purchase_types[0]?.pvms?.control_types_id === 2
+                                                                    ? 'NonControl Item'
+                                                                    : 'Unknown'
+                                                        }
+                                                    </td>
+                                                    <td>{issueItem?.purchase_types[0]?.demand?.demand_type?.name}</td>
+                                                    <td>
+                                                        {new Date(issueItem.purchase_types[0]?.purchase_delivery[0]?.created_at)
+                                                            .toLocaleDateString('en-GB')}
+                                                    </td>
+                                                    <td>{issueItem?.financial_year?.name}</td>
+                                                    <td>{issueItem.purchase_types.length}</td>
+                                                    <td className='d-flex justify-content-around align-items-center gap-2'>
+                                                        {issueItem.afmsd_approval === 3 && (
+                                                            <button className="btn btn-sm btn-success" onClick={() => handleOpenTableModalForGroupIncharge(issueItem)}>
+                                                                Approve
+                                                            </button>
+                                                        )}
+                                                        <button className="btn btn-sm btn-primary me-2" onClick={() => handlePrint(issueItem.id)}>
+                                                            Print
+                                                        </button>
+                                                        <button className="btn btn-sm btn-secondary me-2" onClick={() => handleOpenViewForStockControlOfficer(issueItem)}>view</button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="9" className="text-center py-3 text-muted">
+                                                No issue record for you at this moment.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="d-flex justify-content-center mt-4 gap-2 mx-auto">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="btn btn-sm btn-secondary"
+                            >
+                                Prev
+                            </button>
+
+                            <span className="px-2">Page {currentPage} of {totalPages}</span>
+
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="btn btn-sm btn-secondary"
+                            >
+                                Next
+                            </button>
+                        </div>
+
+                    </div>)
+            ) : (
                 <>
                     {UserInfo && UserInfo.sub_organization && UserInfo.sub_organization.type == 'AFMSD' ? <>
                         <div className="d-flex justify-content-between align-items-center table-header-bg py-1">
@@ -506,11 +1288,27 @@ export default function UnitDelivery() {
                             <div className="d-flex flex-wrap gap-5 align-items-center mb-4">
 
                                 {/* Control Type Filter Buttons */}
-                                <div className="btn-group" role="group" aria-label="Control Type">
-
-                                    <button className="btn btn-sm btn-outline-success">Control</button>
-                                    <button className="btn btn-sm btn-outline-success">Non-Control</button>
+                                <div className="btn-group mb-2" role="group" aria-label="Control Type">
+                                    <button
+                                        className={`btn btn-sm ${filterType === 'control' ? 'btn-success' : 'btn-outline-success'}`}
+                                        onClick={() => {
+                                            setFilterType('control');
+                                            fetchIssuedData(1, searchTerm, 'control');
+                                        }}
+                                    >
+                                        Control
+                                    </button>
+                                    <button
+                                        className={`btn btn-sm ${filterType === 'noncontrol' ? 'btn-success' : 'btn-outline-success'}`}
+                                        onClick={() => {
+                                            setFilterType('noncontrol');
+                                            fetchIssuedData(1, searchTerm, 'noncontrol');
+                                        }}
+                                    >
+                                        Non-Control
+                                    </button>
                                 </div>
+
 
                                 {/* Financial Year Dropdown */}
                                 <div className="d-flex align-items-center gap-2 ml-5 p-2 rounded bg-success text-white shadow-sm">
@@ -518,15 +1316,23 @@ export default function UnitDelivery() {
                                     <select
                                         className="form-select form-select-sm bg-white text-dark border-0 shadow-sm"
                                         style={{ minWidth: '180px', maxWidth: '220px' }}
+                                        value={selectedYear}
+                                        onChange={(e) => {
+                                            const year = e.target.value;
+                                            setSelectedYear(year);
+                                            fetchIssuedData(1, searchTerm, filterType, year); // use current filters
+                                        }}
                                     >
                                         <option value="">All Years</option>
                                         <option value="1">2021–22</option>
                                         <option value="2">2022–23</option>
                                         <option value="3">2023–24</option>
                                         <option value="4">2024–25</option>
-                                        <option value="4">2025–26</option>
+                                        <option value="5">2025–26</option>
+                                        <option value="5">2026–27</option>
                                     </select>
                                 </div>
+
 
                             </div>
 
@@ -598,7 +1404,14 @@ export default function UnitDelivery() {
                                                             </td>
                                                             <td>{item?.financial_year?.name}</td>
                                                             <td>{new Date(item.updated_at).toISOString().split('T')[0]}</td>
-                                                            <td>{item.purchase_number}</td>
+                                                            <td>
+                                                                <div className="d-flex justify-content-between align-items-center">
+                                                                    <span>{item.purchase_number}</span>
+                                                                    {item.stage === 1 && (
+                                                                        <i class="fas fa-check"></i>
+                                                                    )}
+                                                                </div>
+                                                            </td>
                                                             <td>{item.dmd_unit?.name || 'N/A'}</td>
                                                             <td>{item.purchase_pvms[0]?.demand?.demand_type?.name}</td>
                                                             <td>{item.purchase_pvms?.length || 0}</td>
@@ -607,10 +1420,16 @@ export default function UnitDelivery() {
                                                                     <i className="fas fa-eye"></i> View
                                                                 </button>
 
-                                                                <button className="btn btn-sm btn-secondary mr-2 ml-2" >
+                                                                <button className="btn btn-sm btn-secondary mr-2 ml-2"
+                                                                    onClick={() => handlePrint(item.id)}
+                                                                >
                                                                     <i className="fas fa-print"></i> Print
                                                                 </button>
-                                                                <button className="btn btn-sm btn-success" onClick={() => handleIssue(item)}>
+                                                                <button
+                                                                    className="btn btn-sm btn-success"
+                                                                    onClick={() => handleIssue(item)}
+                                                                    disabled={item.stage === 1}
+                                                                >
                                                                     <i className="fas fa-share-square"></i> Issue
                                                                 </button>
                                                             </td>
@@ -900,7 +1719,7 @@ export default function UnitDelivery() {
                             </div>
                         </>
                     }
-                </>}
+                </>)}
         </>
     )
 }

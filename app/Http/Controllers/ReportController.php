@@ -606,8 +606,109 @@ class ReportController extends Controller
         return response()->json($purchases);
     }
 
+    // afmsd approval data for stockcontrolofficer 
+    public function IssueApprovals()
+    {
+        $approvals = Purchase::with([
+            'purchaseTypes',
+            'subOrganization',
+            'financialYear',
+            // 'purchasePvms.pvms.itemTypename',
+            // 'purchasePvms.demand.demandType',
+            'purchaseTypes.purchaseDelivery',
+            'purchaseTypes.demand.demandType',
+            'purchaseTypes.pvms.accountUnit',
+            'purchaseTypes.pvms.itemTypename',
+        ])->where('afmsd_approval', 1)
+            ->orderBy('id', 'desc')
+            ->get();
+
+        //         ->whereIn('afmsd_approval', [1, 2, 3]) 
+        // ->orderBy('id', 'desc')
+        // ->get();
 
 
+        return response()->json($approvals);
+    }
+
+
+
+
+    // afmsd approval data for stockcontrolofficer 
+    public function IssueApprovalsAfmsdCo()
+    {
+        $approvals = Purchase::with([
+            'purchaseTypes',
+            'subOrganization',
+            'financialYear',
+            // 'purchasePvms.pvms.itemTypename',
+            // 'purchasePvms.demand.demandType',
+            'purchaseTypes.purchaseDelivery',
+            'purchaseTypes.demand.demandType',
+            'purchaseTypes.pvms.accountUnit',
+            'purchaseTypes.pvms.itemTypename',
+        ])->where('afmsd_approval', 2)
+            ->orderBy('id', 'desc')
+            ->get();
+
+        return response()->json($approvals);
+    }
+
+    // get data for Group incharge approval
+
+    public function IssueApprovalsAfmsdGroupIncharge()
+    {
+        $approvals = Purchase::with([
+            'purchaseTypes',
+            'subOrganization',
+            'financialYear',
+            // 'purchasePvms.pvms.itemTypename',
+            // 'purchasePvms.demand.demandType',
+            'purchaseTypes.purchaseDelivery',
+            'purchaseTypes.demand.demandType',
+            'purchaseTypes.pvms.accountUnit',
+            'purchaseTypes.pvms.itemTypename',
+        ])->where('afmsd_approval', 3)
+            ->orderBy('id', 'desc')
+            ->get();
+
+        return response()->json($approvals);
+    }
+
+
+    // afmsd approval stockControOfficer update purcahse table data 1 to 2 
+    public function updateAfmsdApprovalStockControlOfficer($id, Request $request)
+    {
+        $purchase = Purchase::findOrFail($id);
+
+        if ($purchase->afmsd_approval >= 1 && $purchase->afmsd_approval <= 3) {
+            $purchase->afmsd_approval += 1; // increment by 1
+            $purchase->save();
+
+            return response()->json([
+                'message' => "afmsd_approval updated to {$purchase->afmsd_approval}"
+            ], 200);
+        }
+
+        return response()->json(['message' => 'Update not allowed'], 400);
+    }
+
+    public function updateAfmsdApprovalGroupIncharge($id, Request $request)
+    {
+        $purchase = Purchase::findOrFail($id);
+
+        if ($purchase->afmsd_approval == 3) {
+            $purchase->afmsd_approval = 4;
+            $purchase->stage = 1;
+            $purchase->save();
+
+            return response()->json([
+                'message' => "afmsd_approval updated to {$purchase->afmsd_approval}"
+            ], 200);
+        }
+
+        return response()->json(['message' => 'Update not allowed'], 400);
+    }
 
     public function purchase_pvms_delivery(Request $request)
     {
@@ -673,18 +774,19 @@ class ReportController extends Controller
     }
 
 
-        
-//     public function purchase_pvms_issue_delivery(Request $request)
-//     {
-//         $data = json_decode($request->getContent(), true);
-// return response()->json($data);
-       
-//     }
 
-    
+    //     public function purchase_pvms_issue_delivery(Request $request)
+    //     {
+    //         $data = json_decode($request->getContent(), true);
+    // return response()->json($data);
+
+    //     }
+
+
     // return response()->json($data);
     public function purchase_pvms_issue_delivery(Request $request)
     {
+
         $data = json_decode($request->getContent(), true);
 
         $qtyIssue = (int) $data['qty_issue'];
@@ -693,29 +795,30 @@ class ReportController extends Controller
         $subOrgId = $data['sub_org_id'];
         $pvmsId = $data['pvms_id'];
         $remarks = $data['remarks'] ?? '';
-        
-       
+
+
 
         $purchase = Purchase::findOrFail($purchaseId);
-         
+
         $purchase_type = PurchaseType::where('purchase_id', $purchaseId)
+            ->where('pvms_id', $pvmsId)
             ->first();
-// dd($purchase_type);
-        
+        // dd($purchase_type->id);
+
         foreach ($batchList as $eachBatch) {
             if ($qtyIssue <= 0) break;
-            
+
             $batchQty = (int) $eachBatch['batch']['qty'];
             // $workorder_receive_id = $eachBatch['workorder_receive_id'];
-            
+
             if ($batchQty <= 0) continue;
 
             // Determine how much to take from this batch
             $deliverQty = min($qtyIssue, $batchQty);
-            
+
 
             $batchPvms = BatchPvms::findOrFail($eachBatch['batch_pvms_id']);
-            
+
             // Insert to stock out
             $afmsd_stock_out = StockService::stockEntry(
                 auth()->user()->sub_org_id,
@@ -727,7 +830,7 @@ class ReportController extends Controller
                 $deliverQty,
                 1
             );
-           
+
             // Insert to transit store
             $uni_stock_transit = StockService::stockEntry(
                 $purchase->sub_org_id,
@@ -739,7 +842,7 @@ class ReportController extends Controller
                 0,
                 0
             );
-             
+
             // Save delivery record
             $purchase_type_delivery = new PurchaseTypeDelivery();
             $purchase_type_delivery->purchase_type_id = $purchase_type->id;
@@ -751,7 +854,7 @@ class ReportController extends Controller
             $purchase_type_delivery->save();
             // Update batch if fully distributed
             if (($batchQty - $deliverQty) <= 0) {
-                
+
                 $batchPvms->is_afmsd_distributed = 1;
                 $batchPvms->save();
             }
@@ -759,7 +862,8 @@ class ReportController extends Controller
             // Reduce the remaining qtyIssue
             $qtyIssue -= $deliverQty;
         }
-
+        $purchase->afmsd_approval = 1;
+        $purchase->save();
         return response()->json(['message' => 'PVMS delivery completed successfully.']);
     }
 

@@ -358,9 +358,9 @@ const IssuePage = () => {
     if (error) return <p className="text-danger text-center my-4">{error}</p>;
     if (!item) return <p className="text-center my-4">Item not found.</p>;
 
-    console.log(item);
-    console.log(purchasePvms);
-    console.log(filteredPurchasePvms);
+    // console.log(item);
+    // console.log(purchasePvms);
+    // console.log(filteredPurchasePvms);
     return (
         <div className="container mt-4">
             <div className="col-12">

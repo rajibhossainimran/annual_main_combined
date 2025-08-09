@@ -424,6 +424,58 @@ class PDFController extends Controller
         return $mpdf->Output();
     }
 
+
+    // afmsd issue PDF 
+    public function afmsdIssuePDF($id)
+    {
+
+        $data = Purchase::with([
+            'purchaseTypes',
+            'subOrganization',
+            'financialYear',
+            // 'purchasePvms.pvms.itemTypename',
+            // 'purchasePvms.demand.demandType',
+            'purchaseTypes.purchaseDelivery',
+            'purchaseTypes.demand.demandType',
+            'purchaseTypes.pvms.accountUnit',
+            'purchaseTypes.pvms.itemTypename',
+        ])->where('id', $id)
+            ->orderBy('id', 'desc')
+            ->get();
+
+         
+       
+        $defaultConfig = (new ConfigVariables())->getDefaults();
+        $fontDirs = $defaultConfig['fontDir'];
+
+        $defaultFontConfig = (new FontVariables())->getDefaults();
+        $fontData = $defaultFontConfig['fontdata'];
+
+        $mpdf = new Mpdf([
+            'format' => 'A4',
+            'fontDir' => array_merge($fontDirs, [resource_path('fonts')]),
+            'fontdata' => $fontData + [
+                'nikosh' => [
+                    'R' => 'Nikosh.ttf',
+                    'useOTL' => 0xFF,
+                    'useKashida' => 75,
+                ]
+            ],
+            'default_font' => 'nikosh'
+        ]);
+        // dd($data);
+        $html = view('admin.pdf.afmsdIssuePDF', ['data' => $data])->render();
+        $mpdf->WriteHTML($html);
+
+        // PDF content as string
+        $pdfContent = $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);
+
+        return response($pdfContent, 200)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'inline; filename="issue-' . $id . '.pdf"');
+    }
+
+
     public function csrPDF($id)
     {
         $mpdf = new \Mpdf\Mpdf([

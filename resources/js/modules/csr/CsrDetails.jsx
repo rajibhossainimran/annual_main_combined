@@ -341,6 +341,8 @@ export default function CsrDetails() {
         setSelectedHod(item.data.id);
     }
 
+
+    console.log(CsrList);
     return (
         <>
         <ModalComponent
